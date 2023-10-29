@@ -27,12 +27,14 @@ func (controller *TagController) Create(c *gin.Context) {
 	if err := c.Bind(&createTagRequest); err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
 	}
 
 	createdTag, err := controller.repository.Create(createTagRequest)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 
 	c.JSON(http.StatusCreated, createdTag)
@@ -43,12 +45,14 @@ func (controller *TagController) Read(c *gin.Context) {
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
 	}
 
 	tagResponse, err := controller.repository.Read(id)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 
 	c.JSON(http.StatusOK, tagResponse)
@@ -59,18 +63,21 @@ func (controller *TagController) Update(c *gin.Context) {
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
 	}
 
 	var updateTagRequest models.UpdateTagRequest
 	if err := c.Bind(&updateTagRequest); err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
 	}
 
 	tagResponse, err := controller.repository.Update(id, updateTagRequest)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 
 	c.JSON(http.StatusOK, tagResponse)
@@ -81,11 +88,13 @@ func (controller *TagController) Delete(c *gin.Context) {
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
 	}
 
 	if err := controller.repository.Delete(id); err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 
 	c.Status(http.StatusNoContent)
@@ -99,6 +108,7 @@ func (controller *TagController) List(c *gin.Context) {
 			id, err := strconv.Atoi(queryparamID)
 			if err != nil {
 				c.AbortWithError(http.StatusBadRequest, fmt.Errorf("not int id at position '%d': %w", index, err))
+				return
 			}
 			IDs = append(IDs, id)
 		}
@@ -107,6 +117,7 @@ func (controller *TagController) List(c *gin.Context) {
 		if err != nil {
 			log.Println(err)
 			c.AbortWithError(http.StatusInternalServerError, err)
+			return
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -117,6 +128,7 @@ func (controller *TagController) List(c *gin.Context) {
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 
 	c.JSON(http.StatusOK, response)
