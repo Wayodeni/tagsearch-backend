@@ -16,25 +16,115 @@ func NewTagRepository(db *sqlx.DB) *TagRepository {
 }
 
 func (repository *TagRepository) Create(request models.CreateTagRequest) (response models.TagResponse, err error) {
+	tx, err := repository.db.Beginx()
+	if err != nil {
+		return response, ErrTransactionOpen
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec("INSERT INTO tags VALUES (?)", request.Name)
+	if err != nil {
+		return response, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return response, err
+	}
+
+	tagId, err := res.LastInsertId()
+	if err != nil {
+		return response, err
+	}
+
+	return repository.Read(tagId)
+}
+
+func (repository *TagRepository) Read(id models.ID) (response models.TagResponse, err error) {
+	tx, err := repository.db.Beginx()
+	if err != nil {
+		return response, ErrTransactionOpen
+	}
+	defer tx.Rollback()
+
+	if err := tx.Get(&response, "SELECT id, name FROM tags WHERE id = ?", id); err != nil {
+		return response, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return response, err
+	}
+
+	return response, nil
+}
+
+func (repository *TagRepository) ReadMany(IDs []models.ID) (response []models.TagResponse, err error) {
+	tx, err := repository.db.Beginx()
+	if err != nil {
+		return response, ErrTransactionOpen
+	}
+	defer tx.Rollback()
+
+	if err := tx.Select(&response, "SELECT id, name FROM tags WHERE id IN (?)", IDs); err != nil {
+		return response, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return response, err
+	}
+
+	return response, nil
+}
+
+func (repository *TagRepository) Update(id models.ID, updateRequest models.UpdateTagRequest) (response models.TagResponse, err error) {
+	tx, err := repository.db.Beginx()
+	if err != nil {
+		return response, ErrTransactionOpen
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("UPDATE tags SET name = ? WHERE id = ?", updateRequest.Name, id); err != nil {
+		return response, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return response, nil
+	}
+
 	return response, err
 }
 
-func (repository *TagRepository) Read(id int) (response models.TagResponse, err error) {
-	return response, err
-}
+func (repository *TagRepository) Delete(id models.ID) (err error) {
+	tx, err := repository.db.Beginx()
+	if err != nil {
+		return ErrTransactionOpen
+	}
+	defer tx.Rollback()
 
-func (repository *TagRepository) ReadMany(IDs []int) (response []models.TagResponse, err error) {
-	return response, err
-}
+	if _, err := tx.Exec("DELETE FROM tags WHERE id = ?", id); err != nil {
+		return err
+	}
 
-func (repository *TagRepository) Update(id int, updateRequest models.UpdateTagRequest) (response models.TagResponse, err error) {
-	return response, err
-}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
 
-func (repository *TagRepository) Delete(id int) (err error) {
 	return nil
 }
 
 func (repository *TagRepository) List() (response []models.TagResponse, err error) {
-	return response, err
+	tx, err := repository.db.Beginx()
+	if err != nil {
+		return response, ErrTransactionOpen
+	}
+	defer tx.Rollback()
+
+	if err := tx.Select(&response, "SELECT id, name FROM tags"); err != nil {
+		return response, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return response, err
+	}
+
+	return response, nil
 }

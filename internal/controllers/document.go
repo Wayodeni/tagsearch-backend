@@ -54,7 +54,7 @@ func (controller *DocumentController) Read(c *gin.Context) {
 		return
 	}
 
-	documentResponse, err := controller.repository.Read(id)
+	documentResponse, err := controller.repository.Read(int64(id))
 	if err != nil {
 		err = fmt.Errorf("unable to read document with id '%v': %w", id, err)
 		log.Println(err)
@@ -82,7 +82,9 @@ func (controller *DocumentController) Update(c *gin.Context) {
 		return
 	}
 
-	documentResponse, err := controller.repository.Update(id, updateDocumentRequest)
+	updateDocumentRequest.RemoveCommonTags()
+
+	documentResponse, err := controller.repository.Update(int64(id), updateDocumentRequest)
 	if err != nil {
 		err = fmt.Errorf("unable to update document: %w", err)
 		log.Println(err)
@@ -102,7 +104,7 @@ func (controller *DocumentController) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := controller.repository.Delete(id); err != nil {
+	if err := controller.repository.Delete(int64(id)); err != nil {
 		err = fmt.Errorf("unable to delete document: %w", err)
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -115,14 +117,14 @@ func (controller *DocumentController) Delete(c *gin.Context) {
 func (controller *DocumentController) List(c *gin.Context) {
 	queryparamIDs, ok := c.GetQueryArray("ids")
 	if ok {
-		IDs := make([]int, len(queryparamIDs))
+		IDs := make([]int64, len(queryparamIDs))
 		for index, queryparamID := range queryparamIDs { // Check if all of the passed IDs are integers
 			id, err := strconv.Atoi(queryparamID)
 			if err != nil {
 				c.AbortWithError(http.StatusBadRequest, fmt.Errorf("not int id at position '%d': %w", index, err))
 				return
 			}
-			IDs = append(IDs, id)
+			IDs = append(IDs, int64(id))
 		}
 
 		response, err := controller.repository.ReadMany(IDs)

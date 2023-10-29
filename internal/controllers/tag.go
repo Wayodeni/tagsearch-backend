@@ -48,7 +48,7 @@ func (controller *TagController) Read(c *gin.Context) {
 		return
 	}
 
-	tagResponse, err := controller.repository.Read(id)
+	tagResponse, err := controller.repository.Read(int64(id))
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -73,7 +73,7 @@ func (controller *TagController) Update(c *gin.Context) {
 		return
 	}
 
-	tagResponse, err := controller.repository.Update(id, updateTagRequest)
+	tagResponse, err := controller.repository.Update(int64(id), updateTagRequest)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -91,7 +91,7 @@ func (controller *TagController) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := controller.repository.Delete(id); err != nil {
+	if err := controller.repository.Delete(int64(id)); err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -103,14 +103,14 @@ func (controller *TagController) Delete(c *gin.Context) {
 func (controller *TagController) List(c *gin.Context) {
 	queryparamIDs, ok := c.GetQueryArray("ids")
 	if ok {
-		IDs := make([]int, len(queryparamIDs))
+		IDs := make([]int64, len(queryparamIDs))
 		for index, queryparamID := range queryparamIDs { // Check if all of the passed IDs are integers
 			id, err := strconv.Atoi(queryparamID)
 			if err != nil {
 				c.AbortWithError(http.StatusBadRequest, fmt.Errorf("not int id at position '%d': %w", index, err))
 				return
 			}
-			IDs = append(IDs, id)
+			IDs = append(IDs, int64(id))
 		}
 
 		response, err := controller.repository.ReadMany(IDs)

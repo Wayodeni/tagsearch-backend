@@ -33,5 +33,17 @@ func NewDb(path string) *sqlx.DB {
 		panic(err)
 	}
 
+	_, err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS tags_documents (
+		tag INTEGER NOT NULL,
+		document INTEGER NOT NULL,
+		FOREIGN KEY(tag) REFERENCES tags(id) ON DELETE CASCADE
+		FOREIGN KEY(document) REFERENCES documents(id) ON DELETE CASCADE
+	)
+	`)
+	if err != nil {
+		panic(err)
+	}
+
 	return db
 }

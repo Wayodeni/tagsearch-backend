@@ -30,15 +30,15 @@ TagsToAdd := []int{1, 4}
 TagsToRemove := []int{5}
 */
 func (udr *UpdateDocumentRequest) RemoveCommonTags() {
-	tagsSliceToMap := func(tags []TagResponse) map[tagResponseID]TagResponse {
-		result := make(map[tagResponseID]TagResponse, len(tags))
+	tagsSliceToMap := func(tags []TagResponse) map[ID]TagResponse {
+		result := make(map[ID]TagResponse, len(tags))
 		for _, tag := range tags {
 			result[tag.ID] = tag
 		}
 		return result
 	}
 
-	tagsMapToSlice := func(tagsMap map[tagResponseID]TagResponse) []TagResponse {
+	tagsMapToSlice := func(tagsMap map[ID]TagResponse) []TagResponse {
 		result := make([]TagResponse, 0, len(tagsMap))
 		for _, tag := range tagsMap {
 			result = append(result, tag)
@@ -60,7 +60,7 @@ func (udr *UpdateDocumentRequest) RemoveCommonTags() {
 }
 
 type DocumentResponse struct {
-	ID   int           `json:"id" db:"id"`
+	ID   ID            `json:"id" db:"id"`
 	Name string        `json:"name" db:"name"`
 	Body string        `json:"body" db:"body"`
 	Tags []TagResponse `json:"tags"`
