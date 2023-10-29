@@ -14,7 +14,7 @@ func NewDb(path string) *sqlx.DB {
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS tags (
 		id   INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT
+		name TEXT NOT NULL
 	)
 	`)
 	if err != nil {
@@ -24,8 +24,8 @@ func NewDb(path string) *sqlx.DB {
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS documents (
 		id   INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT,
-		body TEXT,
+		name TEXT NOT NULL,
+		body TEXT NOT NULL,
 		UNIQUE(name)
 	)
 	`)

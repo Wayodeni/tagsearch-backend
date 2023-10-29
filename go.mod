@@ -84,5 +84,6 @@ require (
 	github.com/mschoch/smat v0.2.0 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	golang.org/x/sys v0.8.0 // indirect
+	gopkg.in/guregu/null.v4 v4.0.0
 	modernc.org/sqlite v1.26.0
 )
