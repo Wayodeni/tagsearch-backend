@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"fmt"
+
 	"github.com/Wayodeni/tagsearch-backend/internal/storage/models"
 	"github.com/jmoiron/sqlx"
 )
@@ -22,7 +24,7 @@ func (repository *TagRepository) Create(request models.CreateTagRequest) (respon
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec("INSERT INTO tags VALUES (?)", request.Name)
+	res, err := tx.Exec("INSERT INTO tags VALUES (NULL, ?)", request.Name)
 	if err != nil {
 		return response, err
 	}
@@ -58,13 +60,18 @@ func (repository *TagRepository) Read(id models.ID) (response models.TagResponse
 }
 
 func (repository *TagRepository) ReadMany(IDs []models.ID) (response []models.TagResponse, err error) {
+	query, args, err := sqlx.In("SELECT id, name FROM tags WHERE id IN (?)", IDs)
+	if err != nil {
+		return response, fmt.Errorf("unable to rebind query for slice usage in sqlx.In: %w", err)
+	}
+
 	tx, err := repository.db.Beginx()
 	if err != nil {
 		return response, ErrTransactionOpen
 	}
 	defer tx.Rollback()
 
-	if err := tx.Select(&response, "SELECT id, name FROM tags WHERE id IN (?)", IDs); err != nil {
+	if err := tx.Select(&response, tx.Rebind(query), args...); err != nil {
 		return response, err
 	}
 
@@ -87,10 +94,10 @@ func (repository *TagRepository) Update(id models.ID, updateRequest models.Updat
 	}
 
 	if err := tx.Commit(); err != nil {
-		return response, nil
+		return response, err
 	}
 
-	return response, err
+	return models.TagResponse{ID: id, Name: updateRequest.Name}, nil
 }
 
 func (repository *TagRepository) Delete(id models.ID) (err error) {
