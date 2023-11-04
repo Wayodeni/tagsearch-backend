@@ -38,7 +38,10 @@ func (repository *TagRepository) Create(request models.CreateTagRequest) (respon
 		return response, err
 	}
 
-	return repository.Read(tagId)
+	return models.TagResponse{
+		ID:   tagId,
+		Name: request.Name,
+	}, nil
 }
 
 func (repository *TagRepository) Read(id models.ID) (response models.TagResponse, err error) {
@@ -134,4 +137,82 @@ func (repository *TagRepository) List() (response []models.TagResponse, err erro
 	}
 
 	return response, nil
+}
+
+func (repository *TagRepository) ListForDocument(tx *sqlx.Tx, documentID models.ID) (response []models.TagResponse, err error) {
+	query := `
+	SELECT id, name FROM tags
+	WHERE id IN (
+		SELECT tag FROM tags_documents
+		WHERE document = ?
+	)
+		`
+
+	if tx == nil {
+		tx, err = repository.db.Beginx()
+		if err != nil {
+			return response, ErrTransactionOpen
+		}
+		defer tx.Rollback()
+	}
+
+	if err := tx.Select(&response, query, documentID); err != nil {
+		return response, err
+	}
+
+	if tx == nil {
+		if err := tx.Commit(); err != nil {
+			return response, err
+		}
+	}
+
+	return response, nil
+}
+
+func (repository *TagRepository) AssignForDocument(tx *sqlx.Tx, documentID models.ID, tags []models.TagResponse) (err error) {
+	if tx == nil {
+		tx, err = repository.db.Beginx()
+		if err != nil {
+			return ErrTransactionOpen
+		}
+		defer tx.Rollback()
+	}
+
+	for _, tag := range tags {
+		_, err := tx.Exec("INSERT INTO tags_documents VALUES (?, ?)", tag.ID, documentID)
+		if err != nil {
+			return err
+		}
+	}
+
+	if tx == nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (repository *TagRepository) DeleteForDocument(tx *sqlx.Tx, documentID models.ID, tags []models.TagResponse) (err error) {
+	if tx == nil {
+		tx, err = repository.db.Beginx()
+		if err != nil {
+			return ErrTransactionOpen
+		}
+		defer tx.Rollback()
+	}
+
+	for _, tag := range tags {
+		_, err := tx.Exec("DELETE FROM tags_documents WHERE tag = ? AND document = ?", tag.ID, documentID)
+		if err != nil {
+			return err
+		}
+	}
+
+	if tx == nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

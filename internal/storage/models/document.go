@@ -9,6 +9,7 @@ type CreateDocumentRequest struct {
 }
 
 type UpdateDocumentRequest struct {
+	Name         null.String   `json:"name"`
 	Body         null.String   `json:"body"`
 	TagsToAdd    []TagResponse `json:"tagsToAdd" binding:"unique"`
 	TagsToRemove []TagResponse `json:"tagsToRemove" binding:"unique"`
@@ -63,5 +64,5 @@ type DocumentResponse struct {
 	ID   ID            `json:"id" db:"id"`
 	Name string        `json:"name" db:"name"`
 	Body string        `json:"body" db:"body"`
-	Tags []TagResponse `json:"tags"`
+	Tags []TagResponse `json:"tags,omitempty"`
 }
