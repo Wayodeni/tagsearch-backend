@@ -28,3 +28,6 @@ index.bleve
 
 # MacOS files
 .DS_Store
+
+#Testdata files
+lenta-ru-news.csv

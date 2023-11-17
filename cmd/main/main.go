@@ -33,7 +33,7 @@ func main() {
 
 	tagRepository := repository.NewTagRepository(db)
 	documentRepository := repository.NewDocumentRepository(db, tagRepository)
-	indexService := service.NewIndexService(&index, documentRepository)
+	indexService := service.NewIndexService(index, documentRepository)
 
 	router := router.NewRouter(tagRepository, documentRepository, indexService)
 	router.Run(fmt.Sprintf("%s:%s", config.App.Host, config.App.Port))

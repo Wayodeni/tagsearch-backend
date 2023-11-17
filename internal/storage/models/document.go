@@ -66,3 +66,10 @@ type DocumentResponse struct {
 	Body string        `json:"body" db:"body"`
 	Tags []TagResponse `json:"tags,omitempty"`
 }
+
+func (documentResponse *DocumentResponse) TagNames() (tags []string) {
+	for _, tag := range documentResponse.Tags {
+		tags = append(tags, tag.Name)
+	}
+	return tags
+}
