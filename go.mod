@@ -3,7 +3,6 @@ module github.com/Wayodeni/tagsearch-backend
 go 1.21.1
 
 require (
-	github.com/blevesearch/bleve v1.0.14
 	github.com/blevesearch/bleve/v2 v2.3.10
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.5.1
