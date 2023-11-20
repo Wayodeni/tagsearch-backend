@@ -21,7 +21,7 @@ const (
 	TAG_COL
 )
 
-const RECORDS_TO_INDEX_QUANTITY = 10000
+const RECORDS_TO_INDEX_QUANTITY = 180000
 
 // Returns manually added documents that will be checked for equality in FindOne and FindMany tests
 func GetExpectedSearchResults(latestDatasetDocumentIndex int) (results []models.DocumentResponse) {
@@ -167,6 +167,33 @@ func NewMockDocumentRepository(documents []models.DocumentResponse) *MockDocumen
 	}
 }
 
+type MockTagRepository struct {
+	store map[models.ID]models.TagResponse
+}
+
+func NewMockTagRepository(documents []models.DocumentResponse) *MockTagRepository {
+	store := map[models.ID]models.TagResponse{}
+	for _, document := range documents {
+		tags := document.Tags
+		for _, tag := range tags {
+			store[int64(tag.ID)] = models.TagResponse{
+				ID:   int64(tag.ID),
+				Name: tag.Name,
+			}
+		}
+	}
+	return &MockTagRepository{
+		store: store,
+	}
+}
+
+func (repository *MockTagRepository) List() (response []models.TagResponse, err error) {
+	for _, tag := range repository.store {
+		response = append(response, tag)
+	}
+	return response, nil
+}
+
 func (repository *MockDocumentRepository) ReadMany(IDs []models.ID) (response []models.DocumentResponse, err error) {
 	for _, id := range IDs {
 		if document, ok := repository.store[id]; ok {
@@ -206,6 +233,7 @@ func NewTestIndexService(testDataPath string) (*service.IndexService, []models.D
 	indexService := service.NewIndexService(
 		index,
 		NewMockDocumentRepository(testData),
+		NewMockTagRepository(testData),
 	)
 
 	if indexTestData {

@@ -23,7 +23,7 @@ func Test_Find_One(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, expectedSearchResults[0], searchResponse[0])
+	require.Equal(t, expectedSearchResults[0], searchResponse.Documents[0])
 
 }
 
