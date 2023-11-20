@@ -9,8 +9,8 @@ import (
 )
 
 type SearchDocumentRequest struct {
-	Query string
-	Tags  []models.TagResponse
+	Query string   `form:"query" json:"query"`
+	Tags  []string `form:"tags" json:"tags"`
 }
 
 type IndexDocument struct {
@@ -50,7 +50,7 @@ func (service *IndexService) Find(searchRequest *SearchDocumentRequest) (respons
 
 	if len(searchRequest.Tags) > 0 {
 		for _, tag := range searchRequest.Tags {
-			termQuery := bleve.NewMatchQuery(tag.Name)
+			termQuery := bleve.NewTermQuery(tag)
 			termQuery.SetField("tags")
 			booleanQuery.AddMust(termQuery)
 		}

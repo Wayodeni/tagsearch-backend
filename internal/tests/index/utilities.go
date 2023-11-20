@@ -1,4 +1,4 @@
-package index_test
+package utilities
 
 import (
 	"encoding/csv"
@@ -6,13 +6,10 @@ import (
 	"io"
 	"log"
 	"os"
-	"testing"
 
-	indexservice "github.com/Wayodeni/tagsearch-backend/internal/service/index"
+	service "github.com/Wayodeni/tagsearch-backend/internal/service/index"
 	"github.com/Wayodeni/tagsearch-backend/internal/storage/models"
 	"github.com/blevesearch/bleve/v2"
-	"github.com/blevesearch/bleve/v2/analysis/lang/ru"
-	"github.com/stretchr/testify/require"
 )
 
 // url,title,text,topic,tags
@@ -24,11 +21,13 @@ const (
 	TAG_COL
 )
 
+const RECORDS_TO_INDEX_QUANTITY = 10000
+
 // Returns manually added documents that will be checked for equality in FindOne and FindMany tests
-func getExpectedSearchResults(latestDocumentIndex int) (results []models.DocumentResponse) {
+func GetExpectedSearchResults(latestDatasetDocumentIndex int) (results []models.DocumentResponse) {
 	expectedSearchResults := []models.DocumentResponse{
 		models.DocumentResponse{
-			ID:   int64(latestDocumentIndex),
+			ID:   int64(latestDatasetDocumentIndex),
 			Name: "Тестовый документ для поиска qwerty",
 			Body: "Это тестовое описание документа для индекса",
 			Tags: []models.TagResponse{
@@ -55,7 +54,7 @@ func getExpectedSearchResults(latestDocumentIndex int) (results []models.Documen
 			},
 		},
 		models.DocumentResponse{
-			ID:   int64(latestDocumentIndex + 1),
+			ID:   int64(latestDatasetDocumentIndex + 1),
 			Name: "Тестовый док для поиска 2 qwerty",
 			Body: "Второй тестовый документ",
 			Tags: []models.TagResponse{
@@ -86,7 +85,7 @@ func getExpectedSearchResults(latestDocumentIndex int) (results []models.Documen
 	return expectedSearchResults
 }
 
-func loadTestData(filePath string) (testData []models.DocumentResponse) {
+func LoadTestData(filePath string) (testData []models.DocumentResponse) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		log.Fatal("Unable to read input file "+filePath, err)
@@ -97,8 +96,7 @@ func loadTestData(filePath string) (testData []models.DocumentResponse) {
 	csvReader.Comment = '#'
 
 	tagset := map[string]struct{}{}
-	const indexedDocsQuantity = 5000
-	for i := 0; i < indexedDocsQuantity; i++ {
+	for i := 0; i < RECORDS_TO_INDEX_QUANTITY; i++ {
 		if i == 0 {
 			continue
 		}
@@ -145,16 +143,16 @@ func loadTestData(filePath string) (testData []models.DocumentResponse) {
 	}
 	fmt.Println("Tags: ", tags)
 
-	testData = append(testData, getExpectedSearchResults(indexedDocsQuantity)...)
+	testData = append(testData, GetExpectedSearchResults(RECORDS_TO_INDEX_QUANTITY)...)
 
 	return testData
 }
 
-type mockDocumentRepository struct {
+type MockDocumentRepository struct {
 	store map[models.ID]models.DocumentResponse
 }
 
-func newMockDocumentRepository(documents []models.DocumentResponse) *mockDocumentRepository {
+func NewMockDocumentRepository(documents []models.DocumentResponse) *MockDocumentRepository {
 	store := map[models.ID]models.DocumentResponse{}
 	for _, document := range documents {
 		store[int64(document.ID)] = models.DocumentResponse{
@@ -164,12 +162,12 @@ func newMockDocumentRepository(documents []models.DocumentResponse) *mockDocumen
 			Tags: document.Tags,
 		}
 	}
-	return &mockDocumentRepository{
+	return &MockDocumentRepository{
 		store: store,
 	}
 }
 
-func (repository *mockDocumentRepository) ReadMany(IDs []models.ID) (response []models.DocumentResponse, err error) {
+func (repository *MockDocumentRepository) ReadMany(IDs []models.ID) (response []models.DocumentResponse, err error) {
 	for _, id := range IDs {
 		if document, ok := repository.store[id]; ok {
 			response = append(response, document)
@@ -178,76 +176,43 @@ func (repository *mockDocumentRepository) ReadMany(IDs []models.ID) (response []
 	return response, nil
 }
 
-func newTestIndexService() (*indexservice.IndexService, []models.DocumentResponse, func()) {
-	testData := loadTestData("lenta-ru-news.csv")
+func getTestIndex() (index bleve.Index, indexTestData bool) {
+	const testIndexName = "test_index.bleve"
 
-	indexMapping := bleve.NewIndexMapping()
-	documentMapping := bleve.NewDocumentMapping()
-
-	documentNameFieldMapping := bleve.NewTextFieldMapping()
-	documentNameFieldMapping.Analyzer = ru.AnalyzerName
-	documentMapping.AddFieldMappingsAt("name", documentNameFieldMapping)
-
-	documentBodyFieldMapping := bleve.NewTextFieldMapping()
-	documentNameFieldMapping.Analyzer = ru.AnalyzerName
-	documentMapping.AddFieldMappingsAt("body", documentBodyFieldMapping)
-
-	documentTagsFieldMapping := bleve.NewTextFieldMapping()
-	documentNameFieldMapping.Analyzer = "keyword"
-	documentMapping.AddFieldMappingsAt("tags", documentTagsFieldMapping)
-
-	indexMapping.AddDocumentMapping("document", documentMapping)
-
-	index, err := bleve.NewMemOnly(indexMapping)
-	if err != nil {
-		panic(err)
+	if _, err := os.Stat(testIndexName); os.IsNotExist(err) {
+		indexTestData = true
+		fmt.Println("test index not found - creating new")
+		index, err = bleve.New(testIndexName, service.GetIndexMapping())
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		fmt.Println("using already existing test bleve index")
+		index, err = bleve.Open(testIndexName)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	return indexservice.NewIndexService(
-			index,
-			newMockDocumentRepository(testData),
-		),
+	return index, indexTestData
+}
+
+func NewTestIndexService(testDataPath string) (*service.IndexService, []models.DocumentResponse, func()) {
+
+	testData := LoadTestData(testDataPath)
+
+	index, indexTestData := getTestIndex()
+
+	indexService := service.NewIndexService(
+		index,
+		NewMockDocumentRepository(testData),
+	)
+
+	if indexTestData {
+		indexService.Index(testData)
+	}
+
+	return indexService,
 		testData,
 		func() { index.Close() }
-}
-
-func Test_Find_One(t *testing.T) {
-	service, testData, cleanupFunc := newTestIndexService()
-	expectedSearchResults := getExpectedSearchResults(len(testData) - 1)
-	defer cleanupFunc()
-
-	err := service.Index(testData)
-	require.NoError(t, err)
-
-	searchResponse, err := service.Find(&indexservice.SearchDocumentRequest{
-		Query: expectedSearchResults[0].Name,
-		Tags:  expectedSearchResults[0].Tags,
-	})
-
-	require.NoError(t, err)
-	require.Equal(t, expectedSearchResults[0], searchResponse[0])
-
-}
-
-func Test_Find_Many(t *testing.T) {
-	service, testData, cleanupFunc := newTestIndexService()
-	expectedSearchResults := getExpectedSearchResults(len(testData) - 1)
-	defer cleanupFunc()
-
-	err := service.Index(testData)
-	require.NoError(t, err)
-
-	searchResponse, err := service.Find(&indexservice.SearchDocumentRequest{
-		Query: "",
-		Tags: []models.TagResponse{
-			{
-				ID:   999,
-				Name: "общий тег",
-			},
-		},
-	})
-
-	require.NoError(t, err)
-	require.Equal(t, expectedSearchResults, searchResponse)
-
 }
