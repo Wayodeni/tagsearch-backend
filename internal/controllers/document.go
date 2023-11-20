@@ -62,6 +62,12 @@ func (controller *DocumentController) Read(c *gin.Context) {
 		return
 	}
 
+	if err := controller.indexService.Index([]models.DocumentResponse{documentResponse}); err != nil {
+		err = fmt.Errorf("unable to index document after creation: %w", err)
+		log.Println(err)
+		c.AbortWithError(http.StatusInternalServerError, err)
+	}
+
 	c.JSON(http.StatusOK, documentResponse)
 }
 

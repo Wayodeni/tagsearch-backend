@@ -10,6 +10,7 @@ import (
 func NewRouter(tagRepository *repository.TagRepository, documentRepository *repository.DocumentRepository, indexService *service.IndexService) *gin.Engine {
 	tagController := controllers.NewTagController(tagRepository)
 	documentController := controllers.NewDocumentController(documentRepository, indexService)
+	searchController := controllers.NewSearchController(indexService)
 
 	r := gin.Default()
 	api := r.Group("/api")
@@ -20,7 +21,7 @@ func NewRouter(tagRepository *repository.TagRepository, documentRepository *repo
 			{
 				tags.POST("", tagController.Create)
 				tags.GET("/:id", tagController.Read)
-				tags.POST("/:id", tagController.Update)
+				tags.PATCH("/:id", tagController.Update)
 				tags.DELETE("/:id", tagController.Delete)
 				tags.GET("", tagController.List)
 			}
@@ -28,9 +29,13 @@ func NewRouter(tagRepository *repository.TagRepository, documentRepository *repo
 			{
 				documents.POST("", documentController.Create)
 				documents.GET("/:id", documentController.Read)
-				documents.POST("/:id", documentController.Update)
+				documents.PATCH("/:id", documentController.Update)
 				documents.DELETE("/:id", documentController.Delete)
 				documents.GET("", documentController.List)
+			}
+			search := v1.Group("/search")
+			{
+				search.GET("", searchController.Search)
 			}
 		}
 	}
