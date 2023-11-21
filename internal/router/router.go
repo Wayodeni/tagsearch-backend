@@ -4,6 +4,7 @@ import (
 	"github.com/Wayodeni/tagsearch-backend/internal/controllers"
 	service "github.com/Wayodeni/tagsearch-backend/internal/service/index"
 	"github.com/Wayodeni/tagsearch-backend/internal/storage/repository"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,6 +14,7 @@ func NewRouter(tagRepository *repository.TagRepository, documentRepository *repo
 	searchController := controllers.NewSearchController(indexService)
 
 	r := gin.Default()
+	r.Use(cors.Default())
 	api := r.Group("/api")
 	{
 		v1 := api.Group("/v1")

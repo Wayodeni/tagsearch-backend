@@ -23,7 +23,7 @@ func main() {
 
 	index, err := bleve.Open(config.Index.Path)
 	if errors.Is(err, bleve.ErrorIndexPathDoesNotExist) {
-		index, err = bleve.New(config.Index.Path, bleve.NewIndexMapping())
+		index, err = bleve.New(config.Index.Path, service.GetIndexMapping())
 		if err != nil {
 			panic(err)
 		}
