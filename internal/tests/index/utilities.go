@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"slices"
 
 	service "github.com/Wayodeni/tagsearch-backend/internal/service/index"
 	"github.com/Wayodeni/tagsearch-backend/internal/storage/models"
@@ -172,16 +173,19 @@ type MockTagRepository struct {
 }
 
 func NewMockTagRepository(documents []models.DocumentResponse) *MockTagRepository {
-	store := map[models.ID]models.TagResponse{}
+	uniqueTags := map[service.TagName]models.TagResponse{}
 	for _, document := range documents {
 		tags := document.Tags
 		for _, tag := range tags {
-			store[int64(tag.ID)] = models.TagResponse{
-				ID:   int64(tag.ID),
-				Name: tag.Name,
-			}
+			uniqueTags[tag.Name] = tag
 		}
 	}
+
+	store := map[models.ID]models.TagResponse{}
+	for _, tag := range uniqueTags {
+		store[tag.ID] = tag
+	}
+
 	return &MockTagRepository{
 		store: store,
 	}
@@ -191,6 +195,16 @@ func (repository *MockTagRepository) List() (response []models.TagResponse, err 
 	for _, tag := range repository.store {
 		response = append(response, tag)
 	}
+	return response, nil
+}
+
+func (repository *MockTagRepository) ReadManyByNames(names []string) (response []models.TagResponse, err error) {
+	for _, tag := range repository.store {
+		if slices.Contains(names, tag.Name) {
+			response = append(response, tag)
+		}
+	}
+
 	return response, nil
 }
 

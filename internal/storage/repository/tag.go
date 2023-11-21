@@ -85,6 +85,29 @@ func (repository *TagRepository) ReadMany(IDs []models.ID) (response []models.Ta
 	return response, nil
 }
 
+func (repository *TagRepository) ReadManyByNames(names []string) (response []models.TagResponse, err error) {
+	query, args, err := sqlx.In("SELECT id, name FROM tags WHERE name IN (?)", names)
+	if err != nil {
+		return response, fmt.Errorf("unable to rebind query for slice usage in sqlx.In: %w", err)
+	}
+
+	tx, err := repository.db.Beginx()
+	if err != nil {
+		return response, ErrTransactionOpen
+	}
+	defer tx.Rollback()
+
+	if err := tx.Select(&response, tx.Rebind(query), args...); err != nil {
+		return response, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return response, err
+	}
+
+	return response, nil
+}
+
 func (repository *TagRepository) Update(id models.ID, updateRequest models.UpdateTagRequest) (response models.TagResponse, err error) {
 	tx, err := repository.db.Beginx()
 	if err != nil {

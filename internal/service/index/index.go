@@ -16,12 +16,12 @@ type SearchDocumentRequest struct {
 type TagName = string
 type DocumentCount = int
 type SearchResponse struct {
-	Documents []models.DocumentResponse `json:"documents"`
-	Tags      []TagBucket               `json:"tags"`
+	Documents []models.DocumentResponse `json:"documents,omitempty"`
+	Tags      []TagBucket               `json:"tags,omitempty"`
 }
 
 type TagBucket struct {
-	TagName       TagName       `json:"name"`
+	models.TagResponse
 	DocumentCount DocumentCount `json:"documentCount"`
 }
 
@@ -35,21 +35,22 @@ func (documentResponse *IndexDocument) Type() string {
 	return "document"
 }
 
-type ReadManyer interface {
+type DocumentReadManyer interface {
 	ReadMany(IDs []models.ID) (response []models.DocumentResponse, err error)
 }
 
-type Lister interface {
+type TagNameLister interface {
 	List() (response []models.TagResponse, err error)
+	ReadManyByNames(names []string) (response []models.TagResponse, err error)
 }
 
 type IndexService struct {
 	index              bleve.Index
-	documentRepository ReadManyer
-	tagRepository      Lister
+	documentRepository DocumentReadManyer
+	tagRepository      TagNameLister
 }
 
-func NewIndexService(index bleve.Index, documentRepository ReadManyer, tagRepository Lister) *IndexService {
+func NewIndexService(index bleve.Index, documentRepository DocumentReadManyer, tagRepository TagNameLister) *IndexService {
 	return &IndexService{
 		index:              index,
 		documentRepository: documentRepository,
@@ -106,22 +107,34 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 	}
 
 	// Getting found docs by id from DB
-	foundDocuments, _ := service.documentRepository.ReadMany(IDs)
+	foundDocuments, err := service.documentRepository.ReadMany(IDs)
+	if err != nil {
+		return response, fmt.Errorf("unable to ReadMany documents by IDs: %w", err)
+	}
+	response.Documents = foundDocuments
 
 	// Getting all tags with count from documents found by query
 	terms := results.Facets["tags"].Terms.Terms()
-	foundTags := make([]TagBucket, 0, len(allTags))
+	foundTagsCount := make(map[TagName]DocumentCount, len(allTags))
+	foundTagsNames := make([]TagName, 0, len(allTags))
 	for _, term := range terms {
-		foundTags = append(foundTags, TagBucket{
-			TagName:       term.Term,
-			DocumentCount: term.Count,
+		foundTagsCount[term.Term] = term.Count
+		foundTagsNames = append(foundTagsNames, term.Term)
+	}
+
+	// Getting additional metadata for tags from database
+	tagResponses, err := service.tagRepository.ReadManyByNames(foundTagsNames)
+	if err != nil {
+		return response, fmt.Errorf("unable to get tags from db: %w", err)
+	}
+	for _, tag := range tagResponses {
+		response.Tags = append(response.Tags, TagBucket{
+			TagResponse:   tag,
+			DocumentCount: foundTagsCount[tag.Name],
 		})
 	}
 
-	return SearchResponse{
-		Documents: foundDocuments,
-		Tags:      foundTags,
-	}, nil
+	return response, nil
 }
 
 func (service *IndexService) Index(documents []models.DocumentResponse) error {
