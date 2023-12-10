@@ -71,11 +71,16 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 	}
 
 	// Adding term query per tag if any tags present
+	queryTags := make([]models.TagResponse, 0, len(searchQuery.Tags))
 	if len(searchQuery.Tags) > 0 {
 		for _, tag := range searchQuery.Tags {
 			termQuery := bleve.NewTermQuery(tag)
 			termQuery.SetField("tags")
 			booleanQuery.AddMust(termQuery)
+		}
+		queryTags, err = service.tagRepository.ReadManyByNames(searchQuery.Tags)
+		if err != nil {
+			return response, fmt.Errorf("unable to get tags from database by names: %w", err)
 		}
 	}
 
@@ -137,6 +142,17 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 			DocumentCount: foundTagsCount[tag.Name],
 			Selected:      slices.Contains(searchQuery.Tags, tag.Name),
 		})
+	}
+
+	// Adding selected tags with zero document count to response
+	for _, tag := range queryTags {
+		if !slices.Contains(tagResponses, tag) {
+			response.Tags = append(response.Tags, TagBucket{
+				TagResponse:   tag,
+				DocumentCount: 0,
+				Selected:      true,
+			})
+		}
 	}
 
 	return response, nil
