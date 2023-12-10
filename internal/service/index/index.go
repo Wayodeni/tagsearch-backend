@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/Wayodeni/tagsearch-backend/internal/storage/models"
@@ -16,13 +17,15 @@ type SearchDocumentRequest struct {
 type TagName = string
 type DocumentCount = int
 type SearchResponse struct {
-	Documents []models.DocumentResponse `json:"documents,omitempty"`
-	Tags      []TagBucket               `json:"tags,omitempty"`
+	Documents      []models.DocumentResponse `json:"documents,omitempty"`
+	Tags           []TagBucket               `json:"tags,omitempty"`
+	DocumentsFound int64                     `json:"documentsFound"`
 }
 
 type TagBucket struct {
 	models.TagResponse
 	DocumentCount DocumentCount `json:"documentCount"`
+	Selected      bool          `json:"selected"`
 }
 
 type IndexDocument struct {
@@ -63,7 +66,7 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 	matchQuery := bleve.NewQueryStringQuery(searchQuery.Query)
 
 	// Adding match query only if it presents
-	if searchQuery.Query != "" {
+	if searchQuery.Query != "" && searchQuery.Query[len(searchQuery.Query)-1] != '-' {
 		booleanQuery.AddMust(matchQuery)
 	}
 
@@ -98,6 +101,7 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 	if err != nil {
 		return response, err
 	}
+	response.DocumentsFound = int64(results.Total)
 
 	// Collecting document IDs from search result to get them from DB
 	IDs := make([]models.ID, 0, results.Size())
@@ -131,12 +135,14 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 		response.Tags = append(response.Tags, TagBucket{
 			TagResponse:   tag,
 			DocumentCount: foundTagsCount[tag.Name],
+			Selected:      slices.Contains(searchQuery.Tags, tag.Name),
 		})
 	}
 
 	return response, nil
 }
 
+// Perform batch document indexing or update
 func (service *IndexService) Index(documents []models.DocumentResponse) error {
 	batch := service.index.NewBatch()
 	for _, document := range documents {
@@ -147,6 +153,26 @@ func (service *IndexService) Index(documents []models.DocumentResponse) error {
 				Body: document.Body,
 				Tags: document.TagNames(),
 			},
+		)
+	}
+	return service.index.Batch(batch)
+	// for _, document := range documents {
+	// 	service.index.Index(
+	// 		fmt.Sprint(document.ID),
+	// 		IndexDocument{
+	// 			Name: document.Name,
+	// 			Body: document.Body,
+	// 			Tags: document.TagNames(),
+	// 		})
+	// }
+	// return nil
+}
+
+func (service *IndexService) Delete(IDs []models.ID) error {
+	batch := service.index.NewBatch()
+	for _, ID := range IDs {
+		batch.Delete(
+			fmt.Sprint(ID),
 		)
 	}
 	return service.index.Batch(batch)

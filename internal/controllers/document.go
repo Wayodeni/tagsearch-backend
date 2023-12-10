@@ -42,6 +42,12 @@ func (controller *DocumentController) Create(c *gin.Context) {
 		return
 	}
 
+	if err := controller.indexService.Index([]models.DocumentResponse{createdDocument}); err != nil {
+		err = fmt.Errorf("unable to index document after creation: %w", err)
+		log.Println(err)
+		c.AbortWithError(http.StatusInternalServerError, err)
+	}
+
 	c.JSON(http.StatusCreated, createdDocument)
 }
 
@@ -60,12 +66,6 @@ func (controller *DocumentController) Read(c *gin.Context) {
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
-	}
-
-	if err := controller.indexService.Index([]models.DocumentResponse{documentResponse}); err != nil {
-		err = fmt.Errorf("unable to index document after creation: %w", err)
-		log.Println(err)
-		c.AbortWithError(http.StatusInternalServerError, err)
 	}
 
 	c.JSON(http.StatusOK, documentResponse)
@@ -98,6 +98,13 @@ func (controller *DocumentController) Update(c *gin.Context) {
 		return
 	}
 
+	if err := controller.indexService.Index([]models.DocumentResponse{documentResponse}); err != nil {
+		err = fmt.Errorf("unable to update document in index: %w", err)
+		log.Println(err)
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	c.JSON(http.StatusOK, documentResponse)
 }
 
@@ -112,6 +119,13 @@ func (controller *DocumentController) Delete(c *gin.Context) {
 
 	if err := controller.repository.Delete(int64(id)); err != nil {
 		err = fmt.Errorf("unable to delete document: %w", err)
+		log.Println(err)
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := controller.indexService.Delete([]models.ID{int64(id)}); err != nil {
+		err = fmt.Errorf("unable to delete document from index: %w", err)
 		log.Println(err)
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
