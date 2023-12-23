@@ -10,6 +10,7 @@ import (
 	"github.com/Wayodeni/tagsearch-backend/internal/storage/db"
 	"github.com/Wayodeni/tagsearch-backend/internal/storage/repository"
 	"github.com/blevesearch/bleve/v2"
+	"github.com/gin-contrib/pprof"
 )
 
 func main() {
@@ -36,5 +37,10 @@ func main() {
 	indexService := service.NewIndexService(index, documentRepository, tagRepository)
 
 	router := router.NewRouter(tagRepository, documentRepository, indexService)
+
+	if config.App.EnableProfiling {
+		pprof.Register(router)
+	}
+
 	router.Run(fmt.Sprintf("%s:%s", config.App.Host, config.App.Port))
 }

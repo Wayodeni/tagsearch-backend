@@ -92,6 +92,10 @@ func (repository *DocumentRepository) setDocumentTags(tx *sqlx.Tx, documentRespo
 }
 
 func (repository *DocumentRepository) ReadMany(IDs []models.ID) (response []models.DocumentResponse, err error) {
+	if len(IDs) == 0 {
+		return response, nil
+	}
+
 	query, args, err := sqlx.In("SELECT id, name, body FROM documents WHERE id IN (?)", IDs)
 	if err != nil {
 		return response, fmt.Errorf("unable to rebind query for slice usage in sqlx.In: %w", err)

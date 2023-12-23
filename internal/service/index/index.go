@@ -114,7 +114,6 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 		idstr, _ := strconv.Atoi(match.ID)
 		IDs = append(IDs, int64(idstr))
 	}
-
 	// Getting found docs by id from DB
 	foundDocuments, err := service.documentRepository.ReadMany(IDs)
 	if err != nil {

@@ -3,14 +3,16 @@ package config
 import (
 	"flag"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
 
 type config struct {
 	App struct {
-		Host string
-		Port string
+		Host            string
+		Port            string
+		EnableProfiling bool
 	}
 
 	Db struct {
@@ -27,6 +29,7 @@ func NewConfig() (*config, error) {
 
 	appHost := flag.String("host", "0.0.0.0", "host where app will run")
 	appPort := flag.String("port", "8000", "port where app will run")
+	appEnableProfiling := flag.Bool("profiling", false, "enable gin pprof profiling endpoints")
 
 	dbFilePath := flag.String("dbpath", "db.sqlite3", "full path to .sqlite3 db file")
 
@@ -48,6 +51,13 @@ func NewConfig() (*config, error) {
 			*appPort = env
 		}
 
+		if env, ok := os.LookupEnv("APP_ENABLE_PROFILING"); ok {
+			*appEnableProfiling, err = strconv.ParseBool(env)
+			if err != nil {
+				panic(err)
+			}
+		}
+
 		if env, ok := os.LookupEnv("DB_FILE_PATH"); ok {
 			*dbFilePath = env
 		}
@@ -59,11 +69,13 @@ func NewConfig() (*config, error) {
 
 	return &config{
 		App: struct {
-			Host string
-			Port string
+			Host            string
+			Port            string
+			EnableProfiling bool
 		}{
 			*appHost,
 			*appPort,
+			*appEnableProfiling,
 		},
 		Db:    struct{ Path string }{*dbFilePath},
 		Index: struct{ Path string }{*indexFilePath},

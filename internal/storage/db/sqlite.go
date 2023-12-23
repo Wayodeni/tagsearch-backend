@@ -46,5 +46,42 @@ func NewDb(path string) *sqlx.DB {
 		panic(err)
 	}
 
+	_, err = db.Exec(`
+	CREATE UNIQUE INDEX IF NOT EXISTS "DOCUMENT_ID" ON "documents" (
+		"id"
+	)
+	`)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(`
+	CREATE INDEX IF NOT EXISTS "DOCUMENT_ID_M2M" ON "tags_documents" (
+		"document"
+	)
+	`)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(`
+	CREATE UNIQUE INDEX IF NOT EXISTS "TAG_ID" ON "tags" (
+		"id",
+		"name"
+	)
+	`)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(`
+	CREATE INDEX IF NOT EXISTS "TAG_ID_M2M" ON "tags_documents" (
+		"tag"
+	)
+	`)
+	if err != nil {
+		panic(err)
+	}
+
 	return db
 }
