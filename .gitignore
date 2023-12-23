@@ -32,3 +32,6 @@ index.bleve
 # Testdata files
 lenta-ru-news.csv
 test_index.bleve
+
+# air files
+tmp
