@@ -51,7 +51,7 @@ type ProgressBar struct {
 func NewProgressBar(startTime time.Time, finalIndex int, printPeriod int) *ProgressBar {
 	pb := &ProgressBar{
 		startTime:   startTime,
-		finalIndex:  finalIndex,
+		finalIndex:  finalIndex - 1,
 		printPeriod: printPeriod,
 		stateStore:  NewStateStore(0, finalIndex),
 	}
