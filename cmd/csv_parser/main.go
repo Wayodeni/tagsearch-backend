@@ -106,20 +106,11 @@ func getDocumentTags(document document, createdTags map[string]models.TagRespons
 }
 
 func loadDocumentsInDb(docRepo *repository.DocumentRepository, tagRepo *repository.TagRepository, createdTags map[string]models.TagResponse, documents []document) []models.DocumentResponse {
-	const PERCENT_PRINT_PERIOD = 500
 	createdDocuments := []models.DocumentResponse{}
 	timeStart := time.Now()
-	for index, document := range documents {
-		if index%PERCENT_PRINT_PERIOD == 0 && int(time.Since(timeStart).Seconds()) != 0 {
-			elapsedTime := int(time.Since(timeStart).Seconds())
-			additionSpeed := index / elapsedTime
-			timeLeft := (RECORDS_TO_INDEX_QUANTITY - index) / additionSpeed
-			secondsLeft := time.Duration(timeLeft) * time.Second
-			fmt.Printf("added to db %f%% documents\n", (float64(index)/float64(RECORDS_TO_INDEX_QUANTITY))*100)
-			fmt.Printf("time left: %.0f hrs %.0f mins %.0f secs\n", secondsLeft.Hours(), secondsLeft.Minutes(), secondsLeft.Seconds())
-			fmt.Printf("addition speed is %d docs/sec. WOW! \n", additionSpeed)
-			fmt.Printf("docs left: %d \n", RECORDS_TO_INDEX_QUANTITY-index)
-		}
+	pb := NewProgressBar(timeStart, RECORDS_TO_INDEX_QUANTITY, 1000)
+	for _, document := range documents {
+		pb.Increment()
 		createdDocument, _ := docRepo.Create(models.CreateDocumentRequest{
 			Name: document.Title,
 			Body: document.Text,

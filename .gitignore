@@ -22,6 +22,7 @@ go.work
 
 # Temporary sqlite db
 db.sqlite3
+test_db.sqlite3
 
 # Bleve Index Files
 index.bleve
