@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<!-- saved from url=(0076)file:///C:/Users/User/AppData/Local/Temp/cover3392506325/coverage.html#file1 -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		
+		<title>router: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/Wayodeni/tagsearch-backend/internal/router/router.go (100.0%)</option>
+				
+				<option value="file1">github.com/Wayodeni/tagsearch-backend/internal/storage/repository/document.go (69.7%)</option>
+				
+				<option value="file2">github.com/Wayodeni/tagsearch-backend/internal/storage/repository/tag.go (51.7%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none;">package router
+
+import (
+        "github.com/Wayodeni/tagsearch-backend/internal/controllers"
+        service "github.com/Wayodeni/tagsearch-backend/internal/service/index"
+        "github.com/Wayodeni/tagsearch-backend/internal/storage/repository"
+        "github.com/gin-contrib/cors"
+        "github.com/gin-gonic/gin"
+)
+
+func NewRouter(tagRepository *repository.TagRepository, documentRepository *repository.DocumentRepository, indexService *service.IndexService) *gin.Engine <span class="cov8" title="1">{
+        tagController := controllers.NewTagController(tagRepository)
+        documentController := controllers.NewDocumentController(documentRepository, indexService)
+        searchController := controllers.NewSearchController(indexService)
+
+        r := gin.Default()
+        r.Use(cors.Default())
+        api := r.Group("/api")
+        </span><span class="cov8" title="1">{
+                v1 := api.Group("/v1")
+                </span><span class="cov8" title="1">{
+                        tags := v1.Group("/tags")
+                        </span><span class="cov8" title="1">{
+                                tags.POST("", tagController.Create)
+                                tags.GET("/:id", tagController.Read)
+                                tags.PATCH("/:id", tagController.Update)
+                                tags.DELETE("/:id", tagController.Delete)
+                                tags.GET("", tagController.List)
+                        }</span>
+                        <span class="cov8" title="1">documents := v1.Group("/documents")
+                        </span><span class="cov8" title="1">{
+                                documents.POST("", documentController.Create)
+                                documents.GET("/:id", documentController.Read)
+                                documents.PATCH("/:id", documentController.Update)
+                                documents.DELETE("/:id", documentController.Delete)
+                                documents.GET("", documentController.List)
+                        }</span>
+                        <span class="cov8" title="1">search := v1.Group("/search")
+                        </span><span class="cov8" title="1">{
+                                search.GET("", searchController.Search)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return r</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: block;">package repository
+
+import (
+        "errors"
+        "fmt"
+
+        "github.com/Wayodeni/tagsearch-backend/internal/storage/models"
+        "github.com/jmoiron/sqlx"
+)
+
+var (
+        ErrTransactionOpen = errors.New("error on transaction opening")
+)
+
+type DocumentRepository struct {
+        db            *sqlx.DB
+        tagRepository *TagRepository
+}
+
+func NewDocumentRepository(db *sqlx.DB, tagRepository *TagRepository) *DocumentRepository <span class="cov8" title="1">{
+        return &amp;DocumentRepository{
+                db:            db,
+                tagRepository: tagRepository,
+        }
+}</span>
+
+func (repository *DocumentRepository) Create(request models.CreateDocumentRequest) (response models.DocumentResponse, err error) <span class="cov8" title="1">{
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        res, err := tx.Exec("INSERT INTO documents VALUES (NULL, ?, ?)", request.Name, request.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">documentID, err := res.LastInsertId()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if err := repository.tagRepository.AssignForDocument(tx, documentID, request.Tags); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return models.DocumentResponse{
+                ID:   documentID,
+                Name: request.Name,
+                Body: request.Body,
+                Tags: request.Tags,
+        }, nil</span>
+}
+
+func (repository *DocumentRepository) Read(id models.ID) (response models.DocumentResponse, err error) <span class="cov8" title="1">{
+        // TODO: Investigate who is faster: single SQL with join or two queries for nested structure
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if err := tx.Get(&amp;response, "SELECT id, name, body FROM documents WHERE id = ?", id); err != nil </span><span class="cov8" title="1">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if err := repository.setDocumentTags(tx, &amp;response); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return response, nil</span>
+}
+
+func (repository *DocumentRepository) setDocumentTags(tx *sqlx.Tx, documentResponse *models.DocumentResponse) (err error) <span class="cov8" title="1">{
+        tags, err := repository.tagRepository.ListForDocument(tx, documentResponse.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if len(tags) &gt; 0 </span><span class="cov8" title="1">{
+                documentResponse.Tags = tags
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (repository *DocumentRepository) ReadMany(IDs []models.ID) (response []models.DocumentResponse, err error) <span class="cov8" title="1">{
+        if len(IDs) == 0 </span><span class="cov0" title="0">{
+                return response, nil
+        }</span>
+
+        <span class="cov8" title="1">query, args, err := sqlx.In("SELECT id, name, body FROM documents WHERE id IN (?)", IDs)
+        if err != nil </span><span class="cov0" title="0">{
+                return response, fmt.Errorf("unable to rebind query for slice usage in sqlx.In: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if err := tx.Select(&amp;response, tx.Rebind(query), args...); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">for i := 0; i &lt; len(response); i++ </span><span class="cov8" title="1">{
+                if err := repository.setDocumentTags(tx, &amp;response[i]); err != nil </span><span class="cov0" title="0">{
+                        return response, err
+                }</span>
+        }
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return response, nil</span>
+}
+
+func (repository *DocumentRepository) Update(id models.ID, updateRequest models.UpdateDocumentRequest) (response models.DocumentResponse, err error) <span class="cov8" title="1">{
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if updateRequest.Name.Valid </span><span class="cov8" title="1">{
+                if _, err := tx.Exec("UPDATE documents SET name = ? WHERE id = ?", updateRequest.Name.String, id); err != nil </span><span class="cov0" title="0">{
+                        return response, err
+                }</span>
+        }
+
+        <span class="cov8" title="1">if updateRequest.Body.Valid </span><span class="cov8" title="1">{
+                if _, err := tx.Exec("UPDATE documents SET body = ? WHERE id = ?", updateRequest.Body.String, id); err != nil </span><span class="cov0" title="0">{
+                        return response, err
+                }</span>
+        }
+
+        <span class="cov8" title="1">if len(updateRequest.TagsToAdd) &gt; 0 </span><span class="cov8" title="1">{
+                if err := repository.tagRepository.AssignForDocument(tx, id, updateRequest.TagsToAdd); err != nil </span><span class="cov0" title="0">{
+                        return response, err
+                }</span>
+        }
+
+        <span class="cov8" title="1">if len(updateRequest.TagsToRemove) &gt; 0 </span><span class="cov8" title="1">{
+                if err := repository.tagRepository.DeleteForDocument(tx, id, updateRequest.TagsToRemove); err != nil </span><span class="cov0" title="0">{
+                        return response, err
+                }</span>
+        }
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return repository.Read(id)</span>
+}
+
+func (repository *DocumentRepository) Delete(id models.ID) (err error) <span class="cov8" title="1">{
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if _, err := tx.Exec("DELETE FROM documents WHERE id = ?", id); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (repository *DocumentRepository) List() (response []models.DocumentResponse, err error) <span class="cov8" title="1">{
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if err := tx.Select(&amp;response, "SELECT id, name, body FROM documents ORDER BY name"); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">for i := 0; i &lt; len(response); i++ </span><span class="cov8" title="1">{
+                repository.setDocumentTags(tx, &amp;response[i])
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return response, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none;">package repository
+
+import (
+        "fmt"
+
+        "github.com/Wayodeni/tagsearch-backend/internal/storage/models"
+        "github.com/jmoiron/sqlx"
+)
+
+type TagRepository struct {
+        db *sqlx.DB
+}
+
+func NewTagRepository(db *sqlx.DB) *TagRepository <span class="cov8" title="1">{
+        return &amp;TagRepository{
+                db: db,
+        }
+}</span>
+
+func (repository *TagRepository) Create(request models.CreateTagRequest) (response models.TagResponse, err error) <span class="cov8" title="1">{
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        res, err := tx.Exec("INSERT INTO tags VALUES (NULL, ?)", request.Name)
+        if err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">tagId, err := res.LastInsertId()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return models.TagResponse{
+                ID:   tagId,
+                Name: request.Name,
+        }, nil</span>
+}
+
+func (repository *TagRepository) Read(id models.ID) (response models.TagResponse, err error) <span class="cov8" title="1">{
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if err := tx.Get(&amp;response, "SELECT id, name FROM tags WHERE id = ?", id); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return response, nil</span>
+}
+
+func (repository *TagRepository) ReadMany(IDs []models.ID) (response []models.TagResponse, err error) <span class="cov8" title="1">{
+        if len(IDs) == 0 </span><span class="cov0" title="0">{
+                return response, nil
+        }</span>
+
+        <span class="cov8" title="1">query, args, err := sqlx.In("SELECT id, name FROM tags WHERE id IN (?)", IDs)
+        if err != nil </span><span class="cov0" title="0">{
+                return response, fmt.Errorf("unable to rebind query for slice usage in sqlx.In: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if err := tx.Select(&amp;response, tx.Rebind(query), args...); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return response, nil</span>
+}
+
+func (repository *TagRepository) ReadManyByNames(names []string) (response []models.TagResponse, err error) <span class="cov0" title="0">{
+        if len(names) == 0 </span><span class="cov0" title="0">{
+                return response, nil
+        }</span>
+
+        <span class="cov0" title="0">query, args, err := sqlx.In("SELECT id, name FROM tags WHERE name IN (?)", names)
+        if err != nil </span><span class="cov0" title="0">{
+                return response, fmt.Errorf("unable to rebind query for slice usage in sqlx.In: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov0" title="0">defer tx.Rollback()
+
+        if err := tx.Select(&amp;response, tx.Rebind(query), args...); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov0" title="0">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov0" title="0">return response, nil</span>
+}
+
+func (repository *TagRepository) Update(id models.ID, updateRequest models.UpdateTagRequest) (response models.TagResponse, err error) <span class="cov8" title="1">{
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if _, err := tx.Exec("UPDATE tags SET name = ? WHERE id = ?", updateRequest.Name, id); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return models.TagResponse{ID: id, Name: updateRequest.Name}, nil</span>
+}
+
+func (repository *TagRepository) Delete(id models.ID) (err error) <span class="cov8" title="1">{
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if _, err := tx.Exec("DELETE FROM tags WHERE id = ?", id); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (repository *TagRepository) List() (response []models.TagResponse, err error) <span class="cov8" title="1">{
+        tx, err := repository.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return response, ErrTransactionOpen
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        if err := tx.Select(&amp;response, "SELECT id, name FROM tags"); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">return response, nil</span>
+}
+
+func (repository *TagRepository) ListForDocument(tx *sqlx.Tx, documentID models.ID) (response []models.TagResponse, err error) <span class="cov8" title="1">{
+        query := `
+        SELECT id, name FROM tags
+        WHERE id IN (
+                SELECT tag FROM tags_documents
+                WHERE document = ?
+        )
+                `
+
+        if tx == nil </span><span class="cov0" title="0">{
+                tx, err = repository.db.Beginx()
+                if err != nil </span><span class="cov0" title="0">{
+                        return response, ErrTransactionOpen
+                }</span>
+                <span class="cov0" title="0">defer tx.Rollback()</span>
+        }
+
+        <span class="cov8" title="1">if err := tx.Select(&amp;response, query, documentID); err != nil </span><span class="cov0" title="0">{
+                return response, err
+        }</span>
+
+        <span class="cov8" title="1">if tx == nil </span><span class="cov0" title="0">{
+                if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                        return response, err
+                }</span>
+        }
+
+        <span class="cov8" title="1">return response, nil</span>
+}
+
+func (repository *TagRepository) AssignForDocument(tx *sqlx.Tx, documentID models.ID, tags []models.TagResponse) (err error) <span class="cov8" title="1">{
+        if tx == nil </span><span class="cov0" title="0">{
+                tx, err = repository.db.Beginx()
+                if err != nil </span><span class="cov0" title="0">{
+                        return ErrTransactionOpen
+                }</span>
+                <span class="cov0" title="0">defer tx.Rollback()</span>
+        }
+
+        <span class="cov8" title="1">for _, tag := range tags </span><span class="cov8" title="1">{
+                _, err := tx.Exec("INSERT INTO tags_documents VALUES (?, ?)", tag.ID, documentID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov8" title="1">if tx == nil </span><span class="cov0" title="0">{
+                if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (repository *TagRepository) DeleteForDocument(tx *sqlx.Tx, documentID models.ID, tags []models.TagResponse) (err error) <span class="cov8" title="1">{
+        if tx == nil </span><span class="cov0" title="0">{
+                tx, err = repository.db.Beginx()
+                if err != nil </span><span class="cov0" title="0">{
+                        return ErrTransactionOpen
+                }</span>
+                <span class="cov0" title="0">defer tx.Rollback()</span>
+        }
+
+        <span class="cov8" title="1">for _, tag := range tags </span><span class="cov8" title="1">{
+                _, err := tx.Exec("DELETE FROM tags_documents WHERE tag = ? AND document = ?", tag.ID, documentID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov8" title="1">if tx == nil </span><span class="cov0" title="0">{
+                if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		</div>
+	
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+
+</body></html>

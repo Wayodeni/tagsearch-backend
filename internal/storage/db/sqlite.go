@@ -6,7 +6,7 @@ import (
 )
 
 func NewDb(path string) *sqlx.DB {
-	db, err := sqlx.Open("sqlite", path)
+	db, err := sqlx.Open("sqlite", "file:"+path+"?"+"_foreign_keys=1")
 	if err != nil {
 		panic(err)
 	}
@@ -38,7 +38,7 @@ func NewDb(path string) *sqlx.DB {
 	CREATE TABLE IF NOT EXISTS tags_documents (
 		tag INTEGER NOT NULL,
 		document INTEGER NOT NULL,
-		FOREIGN KEY(tag) REFERENCES tags(id) ON DELETE CASCADE
+		FOREIGN KEY(tag) REFERENCES tags(id) ON DELETE CASCADE,
 		FOREIGN KEY(document) REFERENCES documents(id) ON DELETE CASCADE
 	)
 	`)
