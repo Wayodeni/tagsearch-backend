@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 
@@ -10,16 +11,20 @@ import (
 )
 
 type SearchDocumentRequest struct {
-	Query string   `form:"query" json:"query"`
-	Tags  []string `form:"tags" json:"tags"`
+	Query      string   `form:"query" json:"query"`
+	Tags       []string `form:"tags" json:"tags"`
+	PageSize   int      `form:"pageSize" json:"pageSize"`
+	PageNumber int      `form:"pageNumber" json:"pageNumber"`
 }
 
 type TagName = string
 type DocumentCount = int
 type SearchResponse struct {
-	Documents      []models.DocumentResponse `json:"documents,omitempty"`
-	Tags           []TagBucket               `json:"tags,omitempty"`
-	DocumentsFound int64                     `json:"documentsFound"`
+	Documents                []models.DocumentResponse `json:"documents,omitempty"`
+	Tags                     []TagBucket               `json:"tags,omitempty"`
+	DocumentsFound           int64                     `json:"documentsFound"`
+	Pages                    int                       `json:"pages"`
+	RequestPageIsOutOfBounds bool                      `json:"requestPageIsOutOfBounds"` // this flag tells frontend to change current page to Pages field of response
 }
 
 type TagBucket struct {
@@ -84,12 +89,12 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 		}
 	}
 
-	// If search request don't contain querystring or tags we searching for all docs or using built query otherwise
+	// If search request donesn't contain querystring or tags we searching for all docs or using built query otherwise
 	var searchRequest *bleve.SearchRequest
 	if len(searchQuery.Tags) == 0 && searchQuery.Query == "" {
-		searchRequest = bleve.NewSearchRequest(bleve.NewMatchAllQuery())
+		searchRequest = bleve.NewSearchRequestOptions(bleve.NewMatchAllQuery(), searchQuery.PageSize, searchQuery.PageNumber*searchQuery.PageSize, false)
 	} else {
-		searchRequest = bleve.NewSearchRequest(booleanQuery)
+		searchRequest = bleve.NewSearchRequestOptions(booleanQuery, searchQuery.PageSize, searchQuery.PageNumber*searchQuery.PageSize, false)
 	}
 
 	// Getting all tags list to get tags quantity for facet request
@@ -107,6 +112,21 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 		return response, err
 	}
 	response.DocumentsFound = int64(results.Total)
+
+	// Getting number of pages for result
+	pages := int(math.Ceil(float64(results.Total) / float64(searchQuery.PageSize)))
+	response.Pages = pages
+
+	// If requested page is out of bounds change it to max page of search result
+	// and tell frontend to change its page. Also update search results for new page number
+	if searchQuery.PageNumber >= pages {
+		response.RequestPageIsOutOfBounds = true
+		searchRequest.From = pages
+		results, err = service.index.Search(searchRequest)
+		if err != nil {
+			return response, err
+		}
+	}
 
 	// Collecting document IDs from search result to get them from DB
 	IDs := make([]models.ID, 0, results.Size())

@@ -100,8 +100,12 @@ func getTagsFromFile(filePath string) []string {
 
 func getDocumentTags(document document, createdTags map[string]models.TagResponse) []models.TagResponse {
 	tags := []models.TagResponse{}
-	tags = append(tags, createdTags[document.Topic])
-	tags = append(tags, createdTags[document.Tag])
+	if tag, ok := createdTags[document.Topic]; ok {
+		tags = append(tags, tag)
+	}
+	if tag, ok := createdTags[document.Tag]; ok {
+		tags = append(tags, tag)
+	}
 	return tags
 }
 
