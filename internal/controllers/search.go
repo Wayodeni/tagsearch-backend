@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	service "github.com/Wayodeni/tagsearch-backend/internal/service/index"
 	"github.com/gin-gonic/gin"
@@ -21,18 +22,7 @@ func NewSearchController(service *service.IndexService) *SearchController {
 }
 
 func (controller *SearchController) Search(c *gin.Context) {
-	const SYMBOLS_TO_REMOVE = "+-=&|><!(){}[]^\"~*?:\\/ "
 	queryString := c.Query("query")
-
-	if len(queryString) != 0 {
-		// Removing querystring query syntax special symbols to prevent 500 error
-		for _, symbolToRemove := range SYMBOLS_TO_REMOVE {
-			if queryString[len(queryString)-1] == byte(symbolToRemove) {
-				queryString = queryString[:len(queryString)-1]
-				break
-			}
-		}
-	}
 
 	pageSizeString, ok := c.GetQuery("pageSize")
 	pageSizeInt := 10
@@ -42,7 +32,7 @@ func (controller *SearchController) Search(c *gin.Context) {
 		if err != nil {
 			err = fmt.Errorf("error during search: %w", err)
 			log.Println(err)
-			c.AbortWithError(http.StatusBadRequest, err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, err)
 			return
 		}
 	}
@@ -54,7 +44,7 @@ func (controller *SearchController) Search(c *gin.Context) {
 		if err != nil {
 			err = fmt.Errorf("error during search: %w", err)
 			log.Println(err)
-			c.AbortWithError(http.StatusBadRequest, err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, err)
 			return
 		}
 	}
@@ -68,16 +58,15 @@ func (controller *SearchController) Search(c *gin.Context) {
 		PageNumber: pageNumberInt,
 	})
 
-	if err != nil {
-		if err.Error() == "syntax error" {
-			err = fmt.Errorf("syntax error detected, check your query")
-			log.Println(err)
-			c.AbortWithError(http.StatusBadRequest, err)
-			return
-		}
+	if err != nil && strings.Contains(err.Error(), "parse error") {
+		err = fmt.Errorf("error during querystring parsing: %w", err)
+		log.Println(err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
+		return
+	} else if err != nil {
 		err = fmt.Errorf("error during search: %w", err)
 		log.Println(err)
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 

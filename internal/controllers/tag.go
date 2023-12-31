@@ -26,14 +26,14 @@ func (controller *TagController) Create(c *gin.Context) {
 
 	if err := c.Bind(&createTagRequest); err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
 		return
 	}
 
 	createdTag, err := controller.repository.Create(createTagRequest)
 	if err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -44,14 +44,14 @@ func (controller *TagController) Read(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
 		return
 	}
 
 	tagResponse, err := controller.repository.Read(int64(id))
 	if err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -62,21 +62,21 @@ func (controller *TagController) Update(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
 		return
 	}
 
 	var updateTagRequest models.UpdateTagRequest
 	if err := c.Bind(&updateTagRequest); err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
 		return
 	}
 
 	tagResponse, err := controller.repository.Update(int64(id), updateTagRequest)
 	if err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -87,13 +87,13 @@ func (controller *TagController) Delete(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
 		return
 	}
 
 	if err := controller.repository.Delete(int64(id)); err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -107,7 +107,7 @@ func (controller *TagController) List(c *gin.Context) {
 		for index, queryparamID := range queryparamIDs { // Check if all of the passed IDs are integers
 			id, err := strconv.Atoi(queryparamID)
 			if err != nil {
-				c.AbortWithError(http.StatusBadRequest, fmt.Errorf("not int id at position '%d': %w", index, err))
+				c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Errorf("not int id at position '%d': %w", index, err))
 				return
 			}
 			IDs = append(IDs, int64(id))
@@ -116,7 +116,7 @@ func (controller *TagController) List(c *gin.Context) {
 		response, err := controller.repository.ReadMany(IDs)
 		if err != nil {
 			log.Println(err)
-			c.AbortWithError(http.StatusInternalServerError, err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, err)
 			return
 		}
 
@@ -127,7 +127,7 @@ func (controller *TagController) List(c *gin.Context) {
 	response, err := controller.repository.List()
 	if err != nil {
 		log.Println(err)
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
 		return
 	}
 
