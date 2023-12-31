@@ -6,7 +6,7 @@ import (
 )
 
 func NewDb(path string) *sqlx.DB {
-	db, err := sqlx.Open("sqlite", "file:"+path+"?"+"_foreign_keys=1")
+	db, err := sqlx.Open("sqlite", "file:"+path+"?"+"_pragma=foreign_keys(1)")
 	if err != nil {
 		panic(err)
 	}
