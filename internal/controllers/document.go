@@ -38,14 +38,14 @@ func (controller *DocumentController) Create(c *gin.Context) {
 	if err != nil {
 		err = fmt.Errorf("unable to create document in storage: %w", err)
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if err := controller.indexService.Index([]models.DocumentResponse{createdDocument}); err != nil {
 		err = fmt.Errorf("unable to index document after creation: %w", err)
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 	}
 
 	c.JSON(http.StatusCreated, createdDocument)
@@ -64,7 +64,7 @@ func (controller *DocumentController) Read(c *gin.Context) {
 	if err != nil {
 		err = fmt.Errorf("unable to read document with id '%v': %w", id, err)
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -76,7 +76,7 @@ func (controller *DocumentController) Update(c *gin.Context) {
 	if err != nil {
 		err = fmt.Errorf("unable to convert id '%s' into int in document update", c.Param("id"))
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -84,7 +84,7 @@ func (controller *DocumentController) Update(c *gin.Context) {
 	if err := c.Bind(&updateDocumentRequest); err != nil {
 		err = fmt.Errorf("unable to bind request body during document update: %w", err)
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -94,14 +94,14 @@ func (controller *DocumentController) Update(c *gin.Context) {
 	if err != nil {
 		err = fmt.Errorf("unable to update document: %w", err)
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if err := controller.indexService.Index([]models.DocumentResponse{documentResponse}); err != nil {
 		err = fmt.Errorf("unable to update document in index: %w", err)
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -113,21 +113,21 @@ func (controller *DocumentController) Delete(c *gin.Context) {
 	if err != nil {
 		err = fmt.Errorf("unable to convert id '%s' into int in document delete", c.Param("id"))
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := controller.repository.Delete(int64(id)); err != nil {
 		err = fmt.Errorf("unable to delete document: %w", err)
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if err := controller.indexService.Delete([]models.ID{int64(id)}); err != nil {
 		err = fmt.Errorf("unable to delete document from index: %w", err)
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -150,7 +150,7 @@ func (controller *DocumentController) List(c *gin.Context) {
 		response, err := controller.repository.ReadMany(IDs)
 		if err != nil {
 			log.Println(err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 
@@ -161,7 +161,7 @@ func (controller *DocumentController) List(c *gin.Context) {
 	response, err := controller.repository.List()
 	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
