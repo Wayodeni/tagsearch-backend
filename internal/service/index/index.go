@@ -98,13 +98,13 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 	}
 
 	// Getting all tags list to get tags quantity for facet request
-	allTags, err := service.tagRepository.List()
+	allDbTags, err := service.tagRepository.List()
 	if err != nil {
 		return response, fmt.Errorf("unable to get List of all tags: %w", err)
 	}
 
 	// Adding facet request to include all tags in response
-	searchRequest.AddFacet("tags", bleve.NewFacetRequest("tags", len(allTags)))
+	searchRequest.AddFacet("tags", bleve.NewFacetRequest("tags", len(allDbTags)))
 
 	// Getting search results with using search request
 	results, err := service.index.Search(searchRequest)
@@ -143,8 +143,8 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 
 	// Getting all tags with count from documents found by query
 	terms := results.Facets["tags"].Terms.Terms()
-	foundTagsCount := make(map[TagName]DocumentCount, len(allTags))
-	foundTagsNames := make([]TagName, 0, len(allTags))
+	foundTagsCount := make(map[TagName]DocumentCount, len(allDbTags))
+	foundTagsNames := make([]TagName, 0, len(allDbTags))
 	for _, term := range terms {
 		foundTagsCount[term.Term] = term.Count
 		foundTagsNames = append(foundTagsNames, term.Term)
@@ -161,6 +161,15 @@ func (service *IndexService) Find(searchQuery *SearchDocumentRequest) (response 
 			DocumentCount: foundTagsCount[tag.Name],
 			Selected:      slices.Contains(searchQuery.Tags, tag.Name),
 		})
+	}
+
+	// Adding tags without any documents assigned to response
+	for _, tag := range allDbTags {
+		if !tag.Assigned {
+			response.Tags = append(response.Tags, TagBucket{
+				TagResponse: tag,
+			})
+		}
 	}
 
 	// Adding selected tags with zero document count to response

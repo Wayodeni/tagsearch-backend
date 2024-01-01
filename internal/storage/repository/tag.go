@@ -125,7 +125,7 @@ func (repository *TagRepository) Update(id models.ID, updateRequest models.Updat
 
 	row := tx.QueryRowx("UPDATE tags SET name = ? WHERE id = ? RETURNING assigned", updateRequest.Name, id)
 	var assigned bool
-	if err := row.Scan(assigned); err != nil {
+	if err := row.Scan(&assigned); err != nil {
 		return response, err
 	}
 

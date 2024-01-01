@@ -11,13 +11,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type TagController struct {
-	repository *repository.TagRepository
+type RelatedDocumentsLister interface {
+	ListForTag(tagID models.ID) (response []models.DocumentResponse, err error)
 }
 
-func NewTagController(tagRepository *repository.TagRepository) *TagController {
+type Indexer interface {
+	Index(documents []models.DocumentResponse) error
+}
+
+type TagController struct {
+	repository         *repository.TagRepository
+	documentRepository RelatedDocumentsLister
+	indexService       Indexer
+}
+
+func NewTagController(tagRepository *repository.TagRepository, documentRepository RelatedDocumentsLister, indexService Indexer) *TagController {
 	return &TagController{
-		repository: tagRepository,
+		repository:         tagRepository,
+		documentRepository: documentRepository,
+		indexService:       indexService,
 	}
 }
 
@@ -44,14 +56,14 @@ func (controller *TagController) Read(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tagResponse, err := controller.repository.Read(int64(id))
 	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -62,21 +74,35 @@ func (controller *TagController) Update(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var updateTagRequest models.UpdateTagRequest
 	if err := c.Bind(&updateTagRequest); err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
+	// TODO: tag update, document listing and reindexing in one transaction
 	tagResponse, err := controller.repository.Update(int64(id), updateTagRequest)
 	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	tagDocuments, err := controller.documentRepository.ListForTag(int64(id))
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := controller.indexService.Index(tagDocuments); err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -87,13 +113,13 @@ func (controller *TagController) Delete(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := controller.repository.Delete(int64(id)); err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -107,7 +133,7 @@ func (controller *TagController) List(c *gin.Context) {
 		for index, queryparamID := range queryparamIDs { // Check if all of the passed IDs are integers
 			id, err := strconv.Atoi(queryparamID)
 			if err != nil {
-				c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Errorf("not int id at position '%d': %w", index, err))
+				c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Errorf("not int id at position '%d': %w", index, err).Error())
 				return
 			}
 			IDs = append(IDs, int64(id))
@@ -116,7 +142,7 @@ func (controller *TagController) List(c *gin.Context) {
 		response, err := controller.repository.ReadMany(IDs)
 		if err != nil {
 			log.Println(err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 
@@ -127,7 +153,7 @@ func (controller *TagController) List(c *gin.Context) {
 	response, err := controller.repository.List()
 	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 

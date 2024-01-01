@@ -9,7 +9,7 @@ import (
 )
 
 func NewRouter(tagRepository *repository.TagRepository, documentRepository *repository.DocumentRepository, indexService *service.IndexService) *gin.Engine {
-	tagController := controllers.NewTagController(tagRepository)
+	tagController := controllers.NewTagController(tagRepository, documentRepository, indexService)
 	documentController := controllers.NewDocumentController(documentRepository, indexService)
 	searchController := controllers.NewSearchController(indexService)
 

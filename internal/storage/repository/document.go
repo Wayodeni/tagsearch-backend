@@ -207,3 +207,34 @@ func (repository *DocumentRepository) List() (response []models.DocumentResponse
 
 	return response, nil
 }
+
+func (repository *DocumentRepository) ListForTag(tagID models.ID) (response []models.DocumentResponse, err error) {
+	query := `
+	SELECT id, name, body 
+	FROM documents
+	WHERE id IN (
+		SELECT document 
+		FROM tags_documents
+		WHERE tag = ?
+	)
+	`
+	tx, err := repository.db.Beginx()
+	if err != nil {
+		return response, ErrTransactionOpen
+	}
+	defer tx.Rollback()
+
+	if err := tx.Select(&response, query, tagID); err != nil {
+		return response, err
+	}
+
+	for i := 0; i < len(response); i++ {
+		repository.setDocumentTags(tx, &response[i])
+	}
+
+	if err := tx.Commit(); err != nil {
+		return response, err
+	}
+
+	return response, nil
+}
