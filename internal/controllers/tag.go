@@ -11,8 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type RelatedDocumentsLister interface {
+type DocumentLister interface {
 	ListForTag(tagID models.ID) (response []models.DocumentResponse, err error)
+	ReadMany(IDs []models.ID) (response []models.DocumentResponse, err error)
 }
 
 type Indexer interface {
@@ -21,11 +22,11 @@ type Indexer interface {
 
 type TagController struct {
 	repository         *repository.TagRepository
-	documentRepository RelatedDocumentsLister
+	documentRepository DocumentLister
 	indexService       Indexer
 }
 
-func NewTagController(tagRepository *repository.TagRepository, documentRepository RelatedDocumentsLister, indexService Indexer) *TagController {
+func NewTagController(tagRepository *repository.TagRepository, documentRepository DocumentLister, indexService Indexer) *TagController {
 	return &TagController{
 		repository:         tagRepository,
 		documentRepository: documentRepository,
@@ -117,7 +118,33 @@ func (controller *TagController) Delete(c *gin.Context) {
 		return
 	}
 
+	// TODO: listing, deleting, reindexing in one transaction
+	tagDocuments, err := controller.documentRepository.ListForTag(int64(id))
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	documentsIDs := make([]models.ID, 0, len(tagDocuments))
+	for _, document := range tagDocuments {
+		documentsIDs = append(documentsIDs, document.ID)
+	}
+
 	if err := controller.repository.Delete(int64(id)); err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	documentsWithoutDeletedTag, err := controller.documentRepository.ReadMany(documentsIDs)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := controller.indexService.Index(documentsWithoutDeletedTag); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return

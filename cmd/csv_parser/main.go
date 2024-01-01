@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"time"
 
@@ -27,8 +28,9 @@ const (
 	TAG_COL
 )
 
-const RECORDS_TO_INDEX_QUANTITY = 10000
+const RECORDS_TO_INDEX_QUANTITY = 180000
 const FILE_PATH = "lenta-ru-news.csv"
+const INDEX_BATCH_SIZE = 30000
 
 type document struct {
 	Title string
@@ -162,7 +164,7 @@ func getDocumentTags(document document, createdTags map[string]models.TagRespons
 	return tags
 }
 
-func loadDocumentsInDbAndIndex(docRepo *repository.DocumentRepository, indexService *service.IndexService, createdTags map[string]models.TagResponse, documents []document) []models.DocumentResponse {
+func loadDocumentsInDb(docRepo *repository.DocumentRepository, createdTags map[string]models.TagResponse, documents []document) []models.DocumentResponse {
 	createdDocuments := []models.DocumentResponse{}
 	pb := NewProgressBar(time.Now(), len(documents)-1, 1000)
 	for _, document := range documents {
@@ -172,7 +174,6 @@ func loadDocumentsInDbAndIndex(docRepo *repository.DocumentRepository, indexServ
 			Body: document.Text,
 			Tags: getDocumentTags(document, createdTags),
 		})
-		indexService.Index([]models.DocumentResponse{createdDocument})
 		createdDocuments = append(createdDocuments, createdDocument)
 	}
 	return createdDocuments
@@ -216,6 +217,22 @@ func getDocumentsFromFile(filePath string) []document {
 	return documents
 }
 
+func indexDocuments(indexService *service.IndexService, documents []models.DocumentResponse) {
+	batchesQuantity := math.Ceil(float64(len(documents)) / float64(INDEX_BATCH_SIZE))
+	batchStartIndex := 0
+	batchStopIndex := batchStartIndex + INDEX_BATCH_SIZE
+	pb := NewProgressBar(time.Now(), int(batchesQuantity), 1000)
+	for i := 0; i < int(batchesQuantity); i++ {
+		if batchStopIndex > len(documents) {
+			batchStopIndex = len(documents)
+		}
+		indexService.Index(documents[batchStartIndex:batchStopIndex])
+		pb.Increment()
+		batchStartIndex = batchStopIndex
+		batchStopIndex += INDEX_BATCH_SIZE
+	}
+}
+
 func main() {
 	db := db.NewDb("test_db.sqlite3")
 
@@ -225,8 +242,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	indexService := service.NewIndexService(index, documentRepository, alwaysAssignedtagRepository)
-
 	tagNames := getTagsFromFile(FILE_PATH)
 	fmt.Println("got all tag names in ram")
 	createdTags := loadTagsInDb(alwaysAssignedtagRepository, tagNames)
@@ -235,6 +250,9 @@ func main() {
 	fmt.Println("got all documents in ram")
 	fmt.Println("starting loading documents with tags into db")
 	fmt.Printf("there are ~%d. be patient :)", RECORDS_TO_INDEX_QUANTITY)
-	loadDocumentsInDbAndIndex(documentRepository, indexService, createdTags, documents)
-	fmt.Println("successfully finished. grab results!!!")
+	dbDocuments := loadDocumentsInDb(documentRepository, createdTags, documents)
+	fmt.Println("successfully added to db")
+	fmt.Println("starting to index...")
+	indexDocuments(service.NewIndexService(index, documentRepository, alwaysAssignedtagRepository), dbDocuments)
+	fmt.Println("FINISHED!!!")
 }
