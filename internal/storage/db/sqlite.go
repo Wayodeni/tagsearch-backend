@@ -6,10 +6,12 @@ import (
 )
 
 func NewDb(path string) *sqlx.DB {
-	db, err := sqlx.Open("sqlite", "file:"+path+"?"+"_pragma=foreign_keys(1)")
+	db, err := sqlx.Open("sqlite", "file:"+path+"?"+"_pragma=foreign_keys(1)&cache=shared")
 	if err != nil {
 		panic(err)
 	}
+
+	db.SetMaxOpenConns(1)
 
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS tags (
