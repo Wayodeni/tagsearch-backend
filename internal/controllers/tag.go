@@ -33,7 +33,7 @@ func (controller *TagController) Create(c *gin.Context) {
 	createdTag, err := controller.repository.Create(createTagRequest)
 	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 

@@ -13,8 +13,9 @@ func NewDb(path string) *sqlx.DB {
 
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS tags (
-		id   INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
+		id   	 INTEGER PRIMARY KEY AUTOINCREMENT,
+		name 	 TEXT NOT NULL,
+		assigned BOOL NOT NULL,
 		UNIQUE(name)
 	)
 	`)

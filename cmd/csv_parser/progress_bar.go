@@ -48,11 +48,11 @@ type ProgressBar struct {
 	stateStore  *StateStore
 }
 
-func NewProgressBar(startTime time.Time, finalIndex int, printPeriod int) *ProgressBar {
+func NewProgressBar(startTime time.Time, finalIndex int, printPeriodMs int) *ProgressBar {
 	pb := &ProgressBar{
 		startTime:   startTime,
 		finalIndex:  finalIndex - 1,
-		printPeriod: printPeriod,
+		printPeriod: printPeriodMs,
 		stateStore:  NewStateStore(0, finalIndex),
 	}
 	go pb.printProgressBar()
@@ -64,6 +64,7 @@ func (pb *ProgressBar) printProgressBar() {
 		time.Sleep(time.Duration(pb.printPeriod) * time.Millisecond)
 		processed, left := pb.stateStore.Get()
 		if left == 0 {
+			fmt.Println("ALL DOCS INSERTED. YAY!!!")
 			return
 		}
 		elapsedTime := time.Since(pb.startTime).Seconds()

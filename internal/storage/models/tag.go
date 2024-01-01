@@ -11,6 +11,7 @@ type UpdateTagRequest struct {
 }
 
 type TagResponse struct {
-	ID   ID     `json:"id" form:"id" db:"id"`
-	Name string `json:"name" form:"name" db:"name"`
+	ID       ID     `json:"id" form:"id" db:"id"`
+	Name     string `json:"name" form:"name" db:"name"`
+	Assigned bool   `json:"assigned" form:"assigned" db:"assigned"`
 }

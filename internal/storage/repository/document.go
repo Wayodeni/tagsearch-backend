@@ -12,12 +12,18 @@ var (
 	ErrTransactionOpen = errors.New("error on transaction opening")
 )
 
-type DocumentRepository struct {
-	db            *sqlx.DB
-	tagRepository *TagRepository
+type TagAssigner interface {
+	AssignForDocument(tx *sqlx.Tx, documentID models.ID, tags []models.TagResponse) (err error)
+	ListForDocument(tx *sqlx.Tx, documentID models.ID) (response []models.TagResponse, err error)
+	DeleteForDocument(tx *sqlx.Tx, documentID models.ID, tags []models.TagResponse) (err error)
 }
 
-func NewDocumentRepository(db *sqlx.DB, tagRepository *TagRepository) *DocumentRepository {
+type DocumentRepository struct {
+	db            *sqlx.DB
+	tagRepository TagAssigner
+}
+
+func NewDocumentRepository(db *sqlx.DB, tagRepository TagAssigner) *DocumentRepository {
 	return &DocumentRepository{
 		db:            db,
 		tagRepository: tagRepository,

@@ -13,6 +13,7 @@ import (
 	"github.com/Wayodeni/tagsearch-backend/internal/storage/models"
 	"github.com/Wayodeni/tagsearch-backend/internal/storage/repository"
 	"github.com/blevesearch/bleve/v2"
+	"github.com/jmoiron/sqlx"
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 )
@@ -26,7 +27,7 @@ const (
 	TAG_COL
 )
 
-const RECORDS_TO_INDEX_QUANTITY = 180000
+const RECORDS_TO_INDEX_QUANTITY = 10000
 const FILE_PATH = "lenta-ru-news.csv"
 
 type document struct {
@@ -36,17 +37,69 @@ type document struct {
 	Tag   string
 }
 
-func loadTagsInDb(tagRepo *repository.TagRepository, tagNames []string) map[string]models.TagResponse {
+type tagCreator interface {
+	Create(request models.CreateTagRequest) (response models.TagResponse, err error)
+}
+
+type alwaysAssignedTagRepository struct {
+	db            *sqlx.DB
+	tagRepository *repository.TagRepository
+}
+
+func newAlwaysAssignedTagRepository(db *sqlx.DB, tagRepository *repository.TagRepository) *alwaysAssignedTagRepository {
+	return &alwaysAssignedTagRepository{
+		db:            db,
+		tagRepository: tagRepository,
+	}
+}
+
+func (repository *alwaysAssignedTagRepository) Create(request models.CreateTagRequest) (response models.TagResponse, err error) {
+	res, err := repository.db.Exec("INSERT INTO tags VALUES (NULL, ?, true)", request.Name)
+	if err != nil {
+		return response, err
+	}
+
+	tagId, err := res.LastInsertId()
+	if err != nil {
+		return response, err
+	}
+
+	return models.TagResponse{
+		ID:   tagId,
+		Name: request.Name,
+	}, nil
+}
+
+func (repository *alwaysAssignedTagRepository) AssignForDocument(tx *sqlx.Tx, documentID models.ID, tags []models.TagResponse) (err error) {
+	return repository.tagRepository.AssignForDocument(tx, documentID, tags)
+}
+func (repository *alwaysAssignedTagRepository) ListForDocument(tx *sqlx.Tx, documentID models.ID) (response []models.TagResponse, err error) {
+	return repository.tagRepository.ListForDocument(tx, documentID)
+}
+func (repository *alwaysAssignedTagRepository) DeleteForDocument(tx *sqlx.Tx, documentID models.ID, tags []models.TagResponse) (err error) {
+	return repository.tagRepository.DeleteForDocument(tx, documentID, tags)
+}
+func (repository *alwaysAssignedTagRepository) List() (response []models.TagResponse, err error) {
+	return repository.tagRepository.List()
+}
+func (repository *alwaysAssignedTagRepository) ReadManyByNames(names []string) (response []models.TagResponse, err error) {
+	return repository.tagRepository.ReadManyByNames(names)
+}
+
+func loadTagsInDb(tagRepo tagCreator, tagNames []string) map[string]models.TagResponse {
 	result := make(map[string]models.TagResponse)
 	for _, name := range tagNames {
 		createdTag, err := tagRepo.Create(models.CreateTagRequest{
 			Name: name,
 		})
+		createdTag.Assigned = true // Setting to true because all of parsed tags will be assigned to documents
 
-		if liteErr, ok := err.(*sqlite.Error); ok {
-			code := liteErr.Code()
+		if sqliteErr, ok := err.(*sqlite.Error); ok {
+			code := sqliteErr.Code()
 			if code == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
 				continue
+			} else {
+				panic(err)
 			}
 		}
 		result[createdTag.Name] = createdTag
@@ -109,10 +162,9 @@ func getDocumentTags(document document, createdTags map[string]models.TagRespons
 	return tags
 }
 
-func loadDocumentsInDb(docRepo *repository.DocumentRepository, tagRepo *repository.TagRepository, createdTags map[string]models.TagResponse, documents []document) []models.DocumentResponse {
+func loadDocumentsInDbAndIndex(docRepo *repository.DocumentRepository, indexService *service.IndexService, createdTags map[string]models.TagResponse, documents []document) []models.DocumentResponse {
 	createdDocuments := []models.DocumentResponse{}
-	timeStart := time.Now()
-	pb := NewProgressBar(timeStart, RECORDS_TO_INDEX_QUANTITY, 1000)
+	pb := NewProgressBar(time.Now(), len(documents)-1, 1000)
 	for _, document := range documents {
 		pb.Increment()
 		createdDocument, _ := docRepo.Create(models.CreateDocumentRequest{
@@ -120,6 +172,7 @@ func loadDocumentsInDb(docRepo *repository.DocumentRepository, tagRepo *reposito
 			Body: document.Text,
 			Tags: getDocumentTags(document, createdTags),
 		})
+		indexService.Index([]models.DocumentResponse{createdDocument})
 		createdDocuments = append(createdDocuments, createdDocument)
 	}
 	return createdDocuments
@@ -166,25 +219,22 @@ func getDocumentsFromFile(filePath string) []document {
 func main() {
 	db := db.NewDb("test_db.sqlite3")
 
-	tagRepository := repository.NewTagRepository(db)
-	documentRepository := repository.NewDocumentRepository(db, tagRepository)
+	alwaysAssignedtagRepository := newAlwaysAssignedTagRepository(db, repository.NewTagRepository(db))
+	documentRepository := repository.NewDocumentRepository(db, alwaysAssignedtagRepository)
 	index, err := bleve.New("test_index.bleve", service.GetIndexMapping())
 	if err != nil {
 		panic(err)
 	}
-	indexService := service.NewIndexService(index, documentRepository, tagRepository)
+	indexService := service.NewIndexService(index, documentRepository, alwaysAssignedtagRepository)
 
 	tagNames := getTagsFromFile(FILE_PATH)
 	fmt.Println("got all tag names in ram")
-	createdTags := loadTagsInDb(tagRepository, tagNames)
+	createdTags := loadTagsInDb(alwaysAssignedtagRepository, tagNames)
 	fmt.Println("got all db-written tags in ram")
 	documents := getDocumentsFromFile(FILE_PATH)
 	fmt.Println("got all documents in ram")
 	fmt.Println("starting loading documents with tags into db")
-	fmt.Println("there are ~180000. be patient :)")
-	loadedDocuments := loadDocumentsInDb(documentRepository, tagRepository, createdTags, documents)
-	fmt.Println("parsed successfully and added to db")
-	fmt.Println("indexing...")
-	indexService.Index(loadedDocuments)
+	fmt.Printf("there are ~%d. be patient :)", RECORDS_TO_INDEX_QUANTITY)
+	loadDocumentsInDbAndIndex(documentRepository, indexService, createdTags, documents)
 	fmt.Println("successfully finished. grab results!!!")
 }
